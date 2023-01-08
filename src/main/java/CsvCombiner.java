@@ -1,7 +1,4 @@
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.io.BufferedReader;
@@ -12,7 +9,7 @@ import java.io.IOException;
 /**
  * This class is a command line based program, the main entrance of the csv combiner.
  * @author Qiaodan Zhao
- * @version 1.0
+ * @version 1.1
  */
 public class CsvCombiner {
     public static void main(String[] args) {
@@ -40,7 +37,7 @@ class Combiner {
         for (String fileName : inputFileNames) {
             Matcher matcher = r.matcher(fileName);
             if (!matcher.matches()) {
-                throw new IllegalArgumentException("Inputfile must be csv format!");
+                throw new IllegalArgumentException("Input file must be csv format!");
             }
         }
         List<List<String>> hearders = getCsvHeaders(inputFileNames);
@@ -58,30 +55,20 @@ class Combiner {
      * @return List of every csv file's headers.
      */
     public List<List<String>> getCsvHeaders(String[] inputFileNames) {
-        List<List<String>> hearders = new ArrayList<List<String>>();
+        List<List<String>> headers = new ArrayList<>();
 
         for (String inputFileName : inputFileNames) {
-            File file = new File(inputFileName);
-            String line = null;
-            String[] firstLine = null;
-
-            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-                if ((line = br.readLine()) != null) {
-                    firstLine = line.split(",");
-                }
-                br.close();
+            List<String> header = new ArrayList<>();
+            try (BufferedReader br = new BufferedReader(new FileReader(inputFileName))) {
+                String[] firstLine = br.readLine().split(",");
+                header = Arrays.asList(firstLine);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
-            List<String> header = new ArrayList<String>();
-            for (String col : firstLine) {
-                header.add(col);
-            }
-            hearders.add(header);
+            headers.add(header);
         }
 
-        return hearders;
+        return headers;
     }
 
     /**
@@ -90,8 +77,8 @@ class Combiner {
      * @return List of combined csv file's headers.
      */
     public List<String> combineHeaders(List<List<String>> hearders) {
-        List<String> combinedHeaders = new ArrayList<String>();
-        Set<String> set = new HashSet<String>();
+        List<String> combinedHeaders = new ArrayList<>();
+        Set<String> set = new HashSet<>();
 
         for (List<String> header : hearders) {
             for (String col : header) {
@@ -108,7 +95,7 @@ class Combiner {
 
     /**
      * This method is to print the combined csv file's headers to std out.
-     * @param combinedHeaders
+     * @param combinedHeaders the merged headers for the result file
      */
     public void writeCombinedHeader(List<String> combinedHeaders) {
         for (int i = 0; i < combinedHeaders.size(); i++) {
@@ -134,22 +121,26 @@ class Combiner {
         String nul = "\"\"";
 
         // find columns' map from combinedHeaders to this file's header
+        Map<String, Integer> headerIndices = new HashMap<>();
+        for (int i = 0; i < header.size(); i++) {
+            headerIndices.put(header.get(i), i);
+        }
+
         int[] map = new int[n];
         for (int i = 0; i < n; i++) {
-            map[i] = -1;
-            for (int j = 0; j < header.size(); j++) {
-                if (combinedHeaders.get(i).equals(header.get(j))) {
-                    map[i] = j;
-                    break;
-                }
+            if (headerIndices.containsKey(combinedHeaders.get(i))) {
+                map[i] = headerIndices.get(combinedHeaders.get(i));
+            }
+            else {
+                map[i] = -1;
             }
         }
 
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            line = br.readLine();
+            line = br.readLine(); // skip the header line
             while ((line = br.readLine()) != null) {
                 cols = line.split(",");
-                StringBuffer sb = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < n - 1; i++) {
                     if (map[i] != -1) {
                         sb.append(cols[map[i]]);
@@ -163,7 +154,6 @@ class Combiner {
                 System.out.println();
                 System.out.print(sb.toString());
             }
-            br.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
